@@ -13,11 +13,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
-import java.util.Collections;
+import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.DoubleSummaryStatistics;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @DataJpaTest
@@ -43,7 +46,9 @@ class HandsOnTest {
     //
     @Test
     void exercise1() {
-        List<Product> result = Collections.emptyList();
+        List<Product> result = productRepo.findAll().stream()
+                .filter(product -> product.getCategory().equalsIgnoreCase("Books") && product.getPrice() > 100)
+                .collect(Collectors.toList());
 
         // ...
 
@@ -58,9 +63,14 @@ class HandsOnTest {
     //
     @Test
     void exercise2() {
-        List<Order> result = Collections.emptyList();
-
-        // ...
+        List<Order> result = orderRepo.findAll().stream()
+                .filter(order ->
+                        order.getProducts().stream()
+                                .anyMatch(
+                                        product -> product.getCategory().equalsIgnoreCase("Baby")
+                                )
+                )
+                .collect(Collectors.toList());
 
         result.forEach(o -> log.info(o.toString()));
 
@@ -68,11 +78,14 @@ class HandsOnTest {
     }
 
     //
-    // Obtener una lista de productos de la categoría = “Toys” y palicarles un 10% de descuento
+    // Obtener una lista de productos de la categoría = “Toys” y aplicarles un 10% de descuento
     //
     @Test
     void exercise3() {
-        List<Product> result = Collections.emptyList();
+        List<Product> result = productRepo.findAll().stream()
+                .filter(product -> product.getCategory().equals("Toys"))
+                .map(product -> product.withPrice(product.getPrice() * 0.9))
+                .collect(Collectors.toList());
 
         // ...
 
@@ -86,7 +99,13 @@ class HandsOnTest {
     //
     @Test
     void exercise4() {
-        List<Product> result = Collections.emptyList();
+        List<Product> result = orderRepo.findAll().stream()
+                .filter(order -> order.getCustomer().getTier() == 2)
+                .filter(order -> order.getOrderDate().compareTo(LocalDate.of(2021, 2, 1)) >= 0)
+                .filter(order -> order.getOrderDate().compareTo(LocalDate.of(2021, 4, 1)) <= 0)
+                .flatMap(order -> order.getProducts().stream())
+                .distinct()
+                .collect(Collectors.toList());
 
         // ...
 
@@ -101,7 +120,11 @@ class HandsOnTest {
     @Test
     void exercise5() {
 
-        Product result = null;
+        Product result = productRepo.findAll().stream()
+                .filter(product -> product.getCategory().equals("Books"))
+                .min(Comparator.comparing(Product::getPrice))
+                .orElse(new Product());
+
         //
 
         log.info("Product: " + result);
@@ -114,7 +137,10 @@ class HandsOnTest {
     //
     @Test
     void exercise6() {
-        List<Order> result = Collections.emptyList();
+        List<Order> result = orderRepo.findAll().stream()
+                .sorted(Comparator.comparing(Order::getOrderDate).reversed())
+                .limit(3)
+                .collect(Collectors.toList());
 
         // ...
 
@@ -124,11 +150,16 @@ class HandsOnTest {
     }
 
     //
-    // Loguear las órdenes con la fecha de orden 15-03-2021 en la consola y obtener la lista de productos
+    // Mostrar por pantalla las órdenes con la fecha de orden 15-03-2021 y obtener la lista de productos
     //
     @Test
     void exercise7() {
-        List<Product> result = Collections.emptyList();
+        List<Product> result = orderRepo.findAll().stream()
+                .filter(order -> order.getOrderDate().isEqual(LocalDate.of(2021, 3, 15)))
+                .peek(System.out::println)
+                .flatMap(order -> order.getProducts().stream())
+                .distinct()
+                .collect(Collectors.toList());
 
         // ...
 
@@ -142,12 +173,16 @@ class HandsOnTest {
     //
     @Test
     void exercise8() {
-        Double result = null;
+        Double result = orderRepo.findAll().stream()
+                .filter(order -> order.getOrderDate().isEqual(LocalDate.of(2021, 3, 15)))
+                .flatMap(order -> order.getProducts().stream())
+                .mapToDouble(Product::getPrice)
+                .sum();
         //
 
         log.info("Result: " + result);
 
-        Assertions.assertEquals(11995.36, result);
+        Assertions.assertEquals(3528.9, result);
     }
 
     //
@@ -155,8 +190,13 @@ class HandsOnTest {
     //
     @Test
     void exercise9() {
-        Double result = null;
-        //
+        Double result = orderRepo.findAll()
+                .stream()
+                .filter(o -> o.getOrderDate().isEqual(LocalDate.of(2021, 3, 15)))
+                .flatMap(o -> o.getProducts().stream())
+                .mapToDouble(Product::getPrice)
+                .average()
+                .orElse(0);
 
         log.info("Result: " + result);
 
@@ -168,8 +208,11 @@ class HandsOnTest {
     //
     @Test
     void exercise10() {
-        DoubleSummaryStatistics result = null;
-        //
+        DoubleSummaryStatistics result = productRepo.findAll()
+                .stream()
+                .filter(p -> p.getCategory().equalsIgnoreCase("Books"))
+                .mapToDouble(Product::getPrice)
+                .summaryStatistics();
 
         log.info("Result: " + result);
 
@@ -181,7 +224,13 @@ class HandsOnTest {
     //
     @Test
     void exercise11() {
-        Map<Long, Integer> result = null;
+        Map<Long, Integer> result = orderRepo.findAll().stream()
+                .collect(
+                        Collectors.toMap(
+                                Order::getId,
+                                order -> order.getProducts().size()
+                        )
+                );
         //
 
         log.info(result.toString());
@@ -194,8 +243,10 @@ class HandsOnTest {
     //
     @Test
     void exercise12() {
-        Map<Customer, List<Order>> result = null;
-        //
+        Map<Customer, List<Order>> result = orderRepo.findAll().stream()
+                        .collect(
+                            Collectors.groupingBy(order -> order.getCustomer())
+                        );
 
         log.info(result.toString());
 
@@ -207,7 +258,16 @@ class HandsOnTest {
     //
     @Test
     void exercise13() {
-        Map<Order, Double> result = null;
+        Map<Order, Double> result = orderRepo.findAll()
+                .stream()
+                .collect(
+                        Collectors.toMap(
+                                Function.identity(),
+                                order -> order.getProducts().stream()
+                                        .mapToDouble(Product::getPrice)
+                                        .sum()
+                        )
+                );
         //
 
         log.info(result.toString());
@@ -220,7 +280,13 @@ class HandsOnTest {
     //
     @Test
     void exercise14() {
-        Map<String, List<String>> result = null;
+        Map<String, List<String>> result = productRepo.findAll().stream()
+                .collect(
+                        Collectors.groupingBy(
+                                Product::getCategory,
+                                Collectors.mapping(Product::getName, Collectors.toList())
+                        )
+                );
         //
 
         log.info(result.toString());
@@ -233,7 +299,13 @@ class HandsOnTest {
     //
     @Test
     void exercise15() {
-        Map<String, Optional<Product>> result = null;
+        Map<String, Optional<Product>> result = productRepo.findAll()
+                .stream()
+                .collect(
+                        Collectors.groupingBy(
+                                Product::getCategory,
+                                Collectors.maxBy(Comparator.comparing(Product::getPrice)))
+                );
 
         result.forEach((k, v) -> log.info("key: " + k + ", value: " + v.get()));
 
